@@ -11,10 +11,9 @@ app.use(express.json());
 // Connect to Supabase DB (Postgres)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: { rejectUnauthorized: false }
 });
+
 
 // Routes
 app.get("/products", async (req, res) => {
