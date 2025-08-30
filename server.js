@@ -1,37 +1,62 @@
 import express from "express";
+import pkg from "pg";
 import cors from "cors";
-import pkg from 'pg';
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const { Pool } = pkg;
-
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-// Connect to Supabase DB (Postgres)
+// Database connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // Needed for Supabase
 });
 
-// Routes
-app.get("/products", async (req, res) => {
-  const result = await pool.query("SELECT * FROM products");
-  res.json(result.rows);
+// Health Check
+app.get("/", (req, res) => {
+  res.send("✅ E-commerce backend is running!");
 });
 
-app.post("/orders", async (req, res) => {
-  const { user_id, items, total } = req.body;
-  const order = await pool.query(
-    "INSERT INTO orders(user_id,total) VALUES($1,$2) RETURNING *",
-    [user_id, total]
-  );
-  for (let item of items) {
-    await pool.query(
-      "INSERT INTO order_items(order_id,product_id,quantity) VALUES($1,$2,$3)",
-      [order.rows[0].id, item.product_id, item.quantity]
-    );
+// Get all products
+app.get("/api/products", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM products");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  res.json({ message: "Order placed!", order: order.rows[0] });
 });
 
-app.listen(5000, () => console.log("Backend running on port 5000"));
+// Get categories
+app.get("/api/categories", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM categories");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add to cart (basic example)
+app.post("/api/cart", async (req, res) => {
+  const { user_id, product_id, quantity } = req.body;
+  try {
+    const result = await pool.query(
+      "INSERT INTO cart(user_id, product_id, quantity) VALUES($1, $2, $3) RETURNING *",
+      [user_id, product_id, quantity]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
